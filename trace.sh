@@ -1,7 +1,7 @@
 #! /bin/bash
 if [ "$#" -lt 2 ];
 then
-    echo -e "请规范格式: \033[1;34;41m$0 -a 127.0.0.1\033[0m"
+    echo -e "请规范参数格式: \033[1;34;41m -a 目标ip\033[0m"
 else
     while [ "$#" -ge 1 ];do
         case $1 in
