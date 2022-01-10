@@ -11,14 +11,13 @@ else
                 shift
         esac
     done
-    if [ ! -x /usr/bin/mtr ] || [ ! -x /sbin/mtr ];
+    if [ ! -x /usr/bin/mtr ] && [ ! -x /sbin/mtr ];
     then
         echo "开始安装mtr命令..."
         apt update -y && apt install mtr -y
         yum update -y && yum install mtr -y
     else
         echo "mtr已安装..."
-        
     fi
     clear
     echo -e "\n正在测试,请稍等..."
@@ -26,7 +25,7 @@ else
     mtr -r --n --tcp ${iplise} > mtr.log
     cat ./mtr.log
     echo -e "——————————————————————————————\n"
-     grep -q "59\.43\." mtr.log
+    grep -q "59\.43\." mtr.log
     if [ $? == 0 ];then
         grep -q "202\.97\."  mtr.log
         if [ $? == 0 ];then
