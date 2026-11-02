@@ -3,7 +3,7 @@
 从 [NodeQuality](https://github.com/LloydAsp/NodeQuality) 测评脚本中剥离出的**回程路由测试**部分，做成单文件脚本：不下载临时系统、不 chroot、不装依赖包、不向任何服务器上传数据。
 
 ```bash
-bash <(curl -sL <你的托管地址>)        # 或直接 scp 上去运行
+bash <(curl -sL https://s.nmd.im/route)
 ```
 
 ## 它测什么
@@ -101,7 +101,7 @@ nexttrace 构造原始报文需要 `CAP_NET_RAW`，`sudo` 或直接用 root 账�
 多为该目标节点超时（已重试 10 次）或 nexttrace 地理库未返回 ASN。可单独重跑：`bash nq-route.sh -p 省份`。
 
 **Q: 如何分发给别人用？**
-托管到任意可直链的地址（如自己的服务器、GitHub Gist raw），然后 `bash <(curl -sL 地址)`。
+使用短链 `https://s.nmd.im/route`（302 跳转到本仓库 main 分支的 `nq-route.sh`，始终是最新版）：`bash <(curl -sL https://s.nmd.im/route)`。
 
 ## 致谢
 
