@@ -74,6 +74,21 @@ bash nq-route.sh --selftest   # 离线自测（不联网, 验证聚合/分类/�
 
 回程判定逻辑（目标节点、TCP 80、`-q 8 --psize 1400`、59.43→CN2、CTGNet→AS23764、路由分类、跳合并、IP 掩码等）与原版逐函数一致，nexttrace 同样锁定 v1.3.7 以保证输出解析稳定。
 
+## 上游自动同步
+
+回程目标与追踪参数来自上游两个项目，本仓库用 GitHub Actions 保持自动跟随（`.github/workflows/sync-targets.yml`）：
+
+- **频率**：每周一 03:00 UTC（北京时间 11:00），也可在 Actions 页面手动触发
+- **自动同步**（数据，改写 `nq-route.sh` 中 `>>> SYNC:xxx >>>` 标记块并自动提交）：
+  - 追踪参数：目标域名后缀、TCP 端口、探测数、包大小、超时、重试次数（来源 `Net.Check.Place` 的 `nexttrace_route`）
+  - 默认测试省份（来源 `get_route_mode` 的 `rmcode`，与上游展示顺序一致）
+  - nexttrace 锁定版本（来源 `run.NodeQuality.com`）
+  - 省份表（`ref/province.json`）与 ASN 名称映射（`ref/AS_Mapping.txt`）
+- **仅告警不自动改**（判定逻辑）：上游 `nexttrace_route` / `get_route_mode` 的分类规则变化（参数归一化后指纹比对）→ 自动开 `upstream-sync` 标签的 issue 提醒人工移植到 `aggregate_results`
+- **提取失败**：上游脚本结构变化导致正则失配 → Action 直接失败，GitHub 发邮件通知
+
+本地手动执行同步：`python3 .github/scripts/sync_targets.py`（需可访问 GitHub）。
+
 ## 常见问题
 
 **Q: 提示需要 root？**

@@ -1,0 +1,78 @@
+name: sync-upstream-targets
+
+# 每周一 03:00 UTC (北京时间周一 11:00) 自动同步上游回程路由目标;
+# 也可在 Actions 页面手动触发 (Run workflow)
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 提取失败(上游结构变化导致正则失配)会直接令本步骤失败 -> 邮件通知
+      - name: 运行上游同步
+        run: |
+          python .github/scripts/sync_targets.py
+          # 报告文件已 gitignore, 复制一份供后续步骤使用
+          cp .github/sync-report.md /tmp/sync-report.md
+
+      - name: 提交数据更新
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "上游无数据变化, 跳过提交"
+          else
+            git add -A
+            printf 'chore(sync): 同步上游回程目标与参数\n\n%s\n' \
+              "$(sed '/^LOGIC_CHANGED$/d' /tmp/sync-report.md)" \
+              | git commit -F-
+            git push
+          fi
+
+      - name: 上游判定逻辑变更提醒 (开 issue)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          grep -q '^LOGIC_CHANGED$' /tmp/sync-report.md || { echo "判定逻辑无变化"; exit 0; }
+          gh label create upstream-sync --color d87623 2>/dev/null || true
+          open_count=$(gh issue list --state open --label upstream-sync --json number --jq 'length')
+          if [ "$open_count" -gt 0 ]; then
+            echo "已存在未处理的 upstream-sync issue, 不重复创建"
+            exit 0
+          fi
+          gh issue create \
+            --title "上游回程判定逻辑有更新, 请人工比对移植" \
+            --label upstream-sync \
+            --body "$(cat <<EOF
+上游 \`Net.Check.Place\` (xykt/NetQuality) 的 \`nexttrace_route\` / \`get_route_mode\` 判定逻辑发生变化。
+
+数据参数(域名/省份/端口/探测数/nexttrace版本等)已自动同步, 但**分类规则**(AS 判定、CN2/CTG 特判、GIA/GT 区分等)需要人工比对后移植到 \`nq-route.sh\` 的 \`aggregate_results\`。
+
+- 上游仓库: https://github.com/xykt/NetQuality
+- 本地对应函数: \`nq-route.sh\` 中 \`nexttrace_route\` / \`aggregate_results\`
+
+同步报告:
+\`\`\`
+$(cat /tmp/sync-report.md)
+\`\`\`
+
+处理完成后关闭本 issue。
+EOF
+)"

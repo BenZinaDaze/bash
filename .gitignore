@@ -1,3 +1,4 @@
 .DS_Store
 *.log
 result.zip
+.github/sync-report.md

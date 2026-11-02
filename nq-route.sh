@@ -24,9 +24,21 @@
 #  依赖: bash 4.3+ / curl / timeout; 建议 root(nexttrace 需要原始套接字)
 # =====================================================================
 
-nt_version="v1.3.7"
-nt_base="https://github.com/nxtrace/NTrace-core/releases/download/${nt_version}"
 script_version="1.1.0"
+
+# ---------- 上游同步参数 (由 .github/workflows/sync-targets.yml 自动更新, 勿手动修改) ----------
+# >>> SYNC:CONFIG >>>
+nt_version="v1.3.7"
+trace_domain_suffix="ip.zstaticcdn.com"
+trace_port=80
+trace_queries=8
+trace_psize=1400
+trace_timeout=50
+trace_max_retries=10
+trace_retry_delay=5
+default_provs="bj sh gd"
+# <<< SYNC:CONFIG <<<
+nt_base="https://github.com/nxtrace/NTrace-core/releases/download/${nt_version}"
 
 # ---------- 字体/颜色 ----------
 Font_B="\033[1m"
@@ -43,38 +55,132 @@ Back_Purple="\033[45m"
 Back_White="\033[47m"
 Font_Suffix="\033[0m"
 
-# ---------- 省份表 (来自 xykt/NetQuality ref/province.json, province<70) ----------
-# 键: 域名小写代码; 值: "显示名|简称"
+# ---------- 省份表 (键: 域名小写代码; 值: "显示名|简称") ----------
+# >>> SYNC:PROV >>> (来源: xykt/NetQuality ref/province.json, province<70)
 declare -A PROV=(
-    [bj]="北京|京"    [tj]="天津|津"    [he]="河北|冀"    [sx]="山西|晋"
-    [nm]="内蒙古|蒙"  [ln]="辽宁|辽"    [jl]="吉林|吉"    [hl]="黑龙江|黑"
-    [sh]="上海|沪"    [js]="江苏|苏"    [zj]="浙江|浙"    [ah]="安徽|皖"
-    [fj]="福建|闽"    [jx]="江西|赣"    [sd]="山东|鲁"    [ha]="河南|豫"
-    [hb]="湖北|鄂"    [hn]="湖南|湘"    [gd]="广东|粤"    [gx]="广西|桂"
-    [hi]="海南|琼"    [cq]="重庆|渝"    [sc]="四川|川"    [gz]="贵州|贵"
-    [yn]="云南|云"    [xz]="西藏|藏"    [sn]="陕西|陕"    [gs]="甘肃|甘"
-    [qh]="青海|青"    [nx]="宁夏|宁"    [xj]="新疆|新"
+    [bj]="北京|京"
+    [tj]="天津|津"
+    [he]="河北|冀"
+    [sx]="山西|晋"
+    [nm]="内蒙古|蒙"
+    [ln]="辽宁|辽"
+    [jl]="吉林|吉"
+    [hl]="黑龙江|黑"
+    [sh]="上海|沪"
+    [js]="江苏|苏"
+    [zj]="浙江|浙"
+    [ah]="安徽|皖"
+    [fj]="福建|闽"
+    [jx]="江西|赣"
+    [sd]="山东|鲁"
+    [ha]="河南|豫"
+    [hb]="湖北|鄂"
+    [hn]="湖南|湘"
+    [gd]="广东|粤"
+    [gx]="广西|桂"
+    [hi]="海南|琼"
+    [cq]="重庆|渝"
+    [sc]="四川|川"
+    [gz]="贵州|贵"
+    [yn]="云南|云"
+    [xz]="西藏|藏"
+    [sn]="陕西|陕"
+    [gs]="甘肃|甘"
+    [qh]="青海|青"
+    [nx]="宁夏|宁"
+    [xj]="新疆|新"
 )
+# <<< SYNC:PROV <<<
 
-# ---------- 常见国际/港澳骨干 ASN 映射 (来自 xykt/NetQuality ref/AS_Mapping.txt) ----------
+# ---------- 常见国际/港澳骨干 ASN 映射 ----------
+# >>> SYNC:ASMAPPING >>> (来源: xykt/NetQuality ref/AS_Mapping.txt)
 declare -A AS_MAPPING=(
-    [AS174]=Cogent   [AS701]=Verizon   [AS702]=Verizon   [AS1239]=Sprint
-    [AS1273]=Vodafone [AS1299]=Arelion [AS2497]=IIJ     [AS2516]=KDDI
-    [AS2914]=NTT     [AS3209]=Vodafone [AS3257]=GTT     [AS3258]=xTom
-    [AS3301]=Telia   [AS3320]=DTAG    [AS3356]=Lumen    [AS3462]=Hinet
-    [AS3491]=PCCW    [AS3786]=LG      [AS4609]=CTM      [AS4637]=Telstra
-    [AS4657]=StarHub [AS4766]=KT      [AS4788]=TMNet    [AS5511]=Orange
-    [AS6233]=xTom    [AS6453]=TATA    [AS6461]=Zayo     [AS6762]=Sparkle
-    [AS6830]=Liberty [AS6939]=HE      [AS7018]="AT&T"   [AS7473]=SingTel
-    [AS7922]=Comcast [AS8075]=MS      [AS8888]=xTom     [AS9002]=RETN
-    [AS9269]=HKBN    [AS9304]=HGC     [AS9505]=CHT      [AS17676]=Softbank
-    [AS12389]=RT_RU  [AS12876]=Scaleway [AS12956]=Telxius [AS13335]=CF
-    [AS15169]=Google [AS15802]=DU     [AS16276]=OVH     [AS16509]=Amazon
-    [AS20473]=Vultr  [AS20485]=TTK_RU [AS23961]=Misaka  [AS24940]=Hetzner
-    [AS25820]=IT7    [AS30844]=Liquid [AS31898]=Oracle  [AS45102]=Alibaba
-    [AS4760]=HKT     [AS4775]=Globe   [AS4809]=CN2      [AS58453]=CMI
-    [AS9808]=CMNET   [AS10099]=CUII   [AS4538]=CERNET
+    [AS174]=Cogent
+    [AS701]=Verizon
+    [AS702]=Verizon
+    [AS1239]=Sprint
+    [AS1273]=Vodafone
+    [AS1299]=Arelion
+    [AS1729]=Telia
+    [AS2497]=IIJ
+    [AS2516]=KDDI
+    [AS2914]=NTT
+    [AS3209]=Vodafone
+    [AS3257]=GTT
+    [AS3258]=xTom
+    [AS3301]=Telia
+    [AS3308]=Telia
+    [AS3320]=DTAG
+    [AS3356]=Level3
+    [AS3462]=Hinet
+    [AS3491]=PCCW
+    [AS3786]=LG
+    [AS4445]=Vodafone
+    [AS4609]=CTM
+    [AS4637]=Telstra
+    [AS4657]=StarHub
+    [AS4766]=KT
+    [AS4788]=TMNet
+    [AS5378]=Vodafone
+    [AS5511]=Orange
+    [AS6233]=xTom
+    [AS6453]=TATA
+    [AS6461]=Zayo
+    [AS6762]=Sparkle
+    [AS6830]=Liberty
+    [AS6939]=HE
+    [AS7018]="AT&T"
+    [AS7473]=SingTel
+    [AS7922]=Comcast
+    [AS7979]=Servers
+    [AS8075]=MS
+    [AS8888]=xTom
+    [AS9002]=RETN
+    [AS9269]=HKBN
+    [AS9304]=HGC
+    [AS9505]=CHT
+    [AS9644]=SK
+    [AS9886]=CTCSCI
+    [AS9924]=TFN
+    [AS12389]=RT_RU
+    [AS12876]=Scaleway
+    [AS12956]=Telxius
+    [AS13335]=CF
+    [AS15169]=Google
+    [AS15802]=DU
+    [AS16276]=OVH
+    [AS16509]=Amazon
+    [AS17676]=Softbank
+    [AS18403]=FPT
+    [AS20473]=Vultr
+    [AS20485]=TTK_RU
+    [AS23961]=Misaka
+    [AS24940]=Hetzner
+    [AS25820]=IT7
+    [AS30844]=Liquid
+    [AS31898]=Oracle
+    [AS37700]=JINX
+    [AS38731]=CHT
+    [AS45102]=Alibaba
+    [AS45899]=VNPT
+    [AS49304]=SAKURA
+    [AS51847]=Nearoute
+    [AS58652]=Level3
+    [AS60068]=Datacamp
+    [AS63150]=Bage
+    [AS132203]=Tencent
+    [AS133613]=MTel
+    [AS136907]=Huawei
+    [AS137409]=GSL
+    [AS140096]=JINX
+    [AS152672]=Aiyun
+    [AS202662]=Hytron
+    [AS209242]=CF
+    [AS211392]=Dream
+    [AS214996]=netcup
+    [AS216382]=Layer
 )
+# <<< SYNC:ASMAPPING <<<
 
 # ---------- 状态变量 ----------
 declare -A rmresu rmallasn rmallgeo rmmaxhop rmcnhop rmcn rmww rmcode
@@ -166,9 +272,9 @@ nexttrace_route(){
     # $1 目标域名 $2 序号 $3 地址族(4/6)
     local domain="$1" rnum="$2" ipv="$3"
     local output retry_count=0
-    local max_retries=10 retry_delay=5
+    local max_retries=$trace_max_retries retry_delay=$trace_retry_delay
     while ((retry_count < max_retries)); do
-        output=$(timeout -s SIGKILL 50 "$nt_bin" -p 80 -q 8 -"$ipv" --tcp --psize 1400 "$domain" 2>/dev/null)
+        output=$(timeout -s SIGKILL "$trace_timeout" "$nt_bin" -p "$trace_port" -q "$trace_queries" -"$ipv" --tcp --psize "$trace_psize" "$domain" 2>/dev/null)
         [[ $output != *"please try again later"* && $output == *"traceroute to"* ]] && break
         retry_count=$((retry_count + 1))
         ((retry_count < max_retries)) && sleep "$retry_delay"
@@ -579,7 +685,7 @@ build_targets(){
             TARGET_PROVS+=("$m")
         done
     else
-        TARGET_PROVS=(bj sh gd)
+        read -ra TARGET_PROVS <<<"$default_provs"
     fi
     # 每省三个目标: 电信(ct) 联通(cu) 移动(cm), 与原版顺序一致
     local n=0 p
@@ -594,7 +700,7 @@ build_targets(){
 check_family(){
     # 检测地址族可用性: 用首个目标域名做 curl 连通性探测
     local ipv=$1 prov=$2
-    local domain="${prov}-ct-v${ipv#-}.ip.zstaticcdn.com"
+    local domain="${prov}-ct-v${ipv#-}.${trace_domain_suffix}"
     curl "-${ipv#-}" -m 8 -s -o /dev/null "http://$domain"
 }
 
@@ -638,7 +744,7 @@ run_family(){
     for prov in "${provs[@]}"; do
         for carrier_str in ct cu cm; do
             i=$((i + 1))
-            domain="${prov}-${carrier_str}-v${ipver}.ip.zstaticcdn.com"
+            domain="${prov}-${carrier_str}-v${ipver}.${trace_domain_suffix}"
             nexttrace_route "$domain" "$i" "$ipver" > "$res_dir/r.$i.txt" &
             echo -e "  ${Font_Yellow}→ [$i/$rmtestnum] ${PROV[$prov]%%|*} $domain${Font_Suffix}" >&2
             current_threads=$((current_threads + 1))
