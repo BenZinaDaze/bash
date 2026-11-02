@@ -57,22 +57,22 @@ jobs:
             echo "已存在未处理的 upstream-sync issue, 不重复创建"
             exit 0
           fi
+          {
+            echo '上游 `Net.Check.Place` (xykt/NetQuality) 的 `nexttrace_route` / `get_route_mode` 判定逻辑发生变化。'
+            echo ''
+            echo '数据参数(域名/省份/端口/探测数/nexttrace版本等)已自动同步, 但**分类规则**(AS 判定、CN2/CTG 特判、GIA/GT 区分等)需要人工比对后移植到 `nq-route.sh` 的 `aggregate_results`。'
+            echo ''
+            echo '- 上游仓库: https://github.com/xykt/NetQuality'
+            echo '- 本地对应函数: `nq-route.sh` 中 `nexttrace_route` / `aggregate_results`'
+            echo ''
+            echo '同步报告:'
+            echo '```'
+            sed '/^LOGIC_CHANGED$/d' /tmp/sync-report.md
+            echo '```'
+            echo ''
+            echo '处理完成后关闭本 issue。'
+          } > /tmp/issue-body.md
           gh issue create \
             --title "上游回程判定逻辑有更新, 请人工比对移植" \
             --label upstream-sync \
-            --body "$(cat <<EOF
-上游 \`Net.Check.Place\` (xykt/NetQuality) 的 \`nexttrace_route\` / \`get_route_mode\` 判定逻辑发生变化。
-
-数据参数(域名/省份/端口/探测数/nexttrace版本等)已自动同步, 但**分类规则**(AS 判定、CN2/CTG 特判、GIA/GT 区分等)需要人工比对后移植到 \`nq-route.sh\` 的 \`aggregate_results\`。
-
-- 上游仓库: https://github.com/xykt/NetQuality
-- 本地对应函数: \`nq-route.sh\` 中 \`nexttrace_route\` / \`aggregate_results\`
-
-同步报告:
-\`\`\`
-$(cat /tmp/sync-report.md)
-\`\`\`
-
-处理完成后关闭本 issue。
-EOF
-)"
+            --body-file /tmp/issue-body.md
